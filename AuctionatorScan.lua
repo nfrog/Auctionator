@@ -15,11 +15,6 @@ local gNumNilItemLinks
 
 -----------------------------------------
 
-AtrScan = {};
-AtrScan.__index = AtrScan;
-
------------------------------------------
-
 AtrSearch = {};
 AtrSearch.__index = AtrSearch;
 
@@ -151,93 +146,6 @@ end
 
 -----------------------------------------
 
-function AtrScan:Init (IDstring, itemName)
-
-  self.IDstring     = IDstring;
-
-  if (itemName) then
-    self.itemName = itemName;
-  end
-
-  self.itemLink     = nil;
-  self.scanData     = {};
-  self.sortedData     = {};
-  self.whenScanned    = 0;
-  self.lowprice     = BIGNUM;
-  self.absoluteBest   = nil;
-  self.itemClass      = 0;
-  self.itemSubclass   = 0;
-  self.itemLevel      = 0;
-  self.yourBestPrice    = nil;
-  self.yourWorstPrice   = nil;
-  self.itemTextColor    = { 1.0, 1.0, 1.0 };
-  self.searchText     = nil;
-
-end
-
-
------------------------------------------
-
-function AtrScan:UpdateItemLink (itemLink)
-  Auctionator.Debug.Message( itemLink )
-
-  if (itemLink and self.itemLink == nil) then
-
-    self.itemLink = itemLink;
-
-    local _, quality, iLevel, sType, sSubType;
-
-    if (zc.IsBattlePetLink (itemLink)) then
-
-      local speciesID, level, breedQuality = zc.ParseBattlePetLink (itemLink)
-
-      iLevel  = level;
-      quality = breedQuality;
-
-      self.itemClass    = LE_ITEM_CLASS_BATTLEPET;
-      self.itemSubclass = 0;
-
-    else
-      Auctionator.Util.Print( { GetItemInfo( itemLink ) }, 'GET ITEM INFO' .. itemLink )
-      -- TODO: Capture this knowledge somewhere
-      -- 1: name
-      -- 2: itemLink
-      -- 3: quality
-      -- 4: iLevel
-      -- 5: required Level
-      -- 6: itemClass String
-      -- 7: subClass String
-      -- 8: ? (int)
-      -- 9: WTF String
-      -- 10: big int
-      -- 11: big int
-      -- 12: itemClass int
-      -- 13: subClass int
-
-      _, _, quality, iLevel, _, sType, sSubType, _, _, _, _, itemClass, itemSubClass = GetItemInfo(itemLink);
-
-      self.itemClass    = itemClass
-      self.itemSubclass = itemSubClass
-    end
-
-    self.itemQuality  = quality;
-    self.itemLevel    = iLevel;
-
-    self.itemTextColor = { 0.75, 0.75, 0.75 };
-
-    if (quality == 0) then  self.itemTextColor = { 0.6, 0.6, 0.6 }; end
-    if (quality == 1) then  self.itemTextColor = { 1.0, 1.0, 1.0 }; end
-    if (quality == 2) then  self.itemTextColor = { 0.2, 1.0, 0.0 }; end
-    if (quality == 3) then  self.itemTextColor = { 0.0, 0.5, 1.0 }; end
-    if (quality == 4) then  self.itemTextColor = { 0.7, 0.3, 1.0 }; end
-  end
-
-end
-
-
-
------------------------------------------
-
 function AtrSearch:NumScans()
 
   if (self.sortedScans) then
@@ -291,7 +199,9 @@ function AtrSearch:Start ()
     return
   end
 
-  if Atr_IsCompoundSearch( self.searchText ) then
+  local isCompoundSearch = Atr_IsCompoundSearch( self.searchText )
+
+  if isCompoundSearch then
     self.sortHow = Auctionator.Constants.Sort.PRICE_DESCENDING
   end
 
@@ -299,7 +209,7 @@ function AtrSearch:Start ()
 
   local numpulled = 0;
 
-  if (self.exactMatchtext == nil and not self.IDstring and not Atr_IsCompoundSearch (self.searchText) and string.len(self.searchText) > 2) then
+  if (self.exactMatchtext == nil and not self.IDstring and not isCompoundSearch and string.len(self.searchText) > 2) then
     local name, info, itemLink;
     for name, info in pairs(gAtr_ScanDB) do
       if (zc.StringContains (name, self.searchText)) then
@@ -419,8 +329,7 @@ function AtrSearch:SetScanningMessage()
   elseif self.query.totalAuctions >= 50 then
     message = string.format(
       ZT( "Scanning auctions: page %d of %d"), self.current_page,
-        ceil( self.query.totalAuctions / NUM_AUCTION_ITEMS_PER_PAGE
-      )
+        ceil( self.query.totalAuctions / NUM_AUCTION_ITEMS_PER_PAGE )
     )
   end
 
@@ -517,54 +426,6 @@ function AtrSearch:AnalyzeResultsPage()
 
   return done
 end
-
------------------------------------------
-
-function AtrScan:AddScanItem (stackSize, buyoutPrice, owner, numAuctions, curpage)
-
-  local sd = {};
-  local i;
-
-  if (numAuctions == nil) then
-    numAuctions = 1;
-  end
-
-  for i = 1, numAuctions do
-    sd["stackSize"]   = stackSize;
-    sd["buyoutPrice"] = buyoutPrice;
-    sd["owner"]     = owner;
-    sd["pagenum"]   = curpage;
-
-    tinsert (self.scanData, sd);
-
-    if (buyoutPrice and buyoutPrice > 0) then
-      local itemPrice = math.floor (buyoutPrice / stackSize);
-
-      self.lowprice = math.min (self.lowprice, itemPrice);
-    end
-  end
-
-end
-
-
------------------------------------------
-
-function AtrScan:SubtractScanItem (stackSize, buyoutPrice)
-
-  local sd;
-  local i;
-
-  for i,sd in ipairs (self.scanData) do
-
-    if (sd.stackSize == stackSize and sd.buyoutPrice == buyoutPrice) then
-
-      tremove (self.scanData, i);
-      return;
-    end
-  end
-
-end
-
 
 -----------------------------------------
 
@@ -678,7 +539,7 @@ function AtrSearch:Continue()
 
   if canQuery then
 
-    self.processing_state = KM_IN_QUERY;
+    self.processing_state = Auctionator.Constants.SearchStates.IN_QUERY
 
     local queryString;
 
@@ -723,13 +584,7 @@ function AtrSearch:Continue()
 
     queryString = Auctionator.Util.UTF8_Truncate( queryString ) -- attempting to reduce number of disconnects
 
-    Auctionator.Util.Print( filter )
-
-    Auctionator.Util.Print(
-      { queryString, minLevel, maxLevel, self.current_page, nil, nil, false, exactMatch, filter },
-      'QUERY AUCTION ITEMS PARAMS'
-    )
-    QueryAuctionItems (queryString, minLevel, maxLevel, self.current_page, nil, nil, false, exactMatch, filter )
+    Atr_QueryAuctionItems( queryString, minLevel, maxLevel, self.current_page, nil, nil, false, exactMatch, filter )
 
     self.query_sent_when  = gAtr_ptime;
     self.processing_state = Auctionator.Constants.SearchStates.POST_QUERY;
@@ -737,6 +592,16 @@ function AtrSearch:Continue()
     self.current_page   = self.current_page + 1;
   end
 
+end
+
+function Atr_QueryAuctionItems( queryString, minLevel, maxLevel, page, a, b, c, exactMatch, filter )
+  Auctionator.Util.Print(
+    { queryString, minLevel, maxLevel, page, a, b, c, exactMatch, filter },
+    'QUERY AUCTION ITEMS PARAMS'
+  )
+  Auctionator.Util.Print( filter, 'FILTER' )
+
+  QueryAuctionItems( queryString, minLevel, maxLevel, page, a, b, c, exactMatch, filter )
 end
 
 -----------------------------------------
@@ -942,7 +807,7 @@ function Atr_ClearBrowseListings()
 
 
   if (CanSendAuctionQuery()) then
-    QueryAuctionItems("xyzzy", 43, 43, 0, 7, 0);
+    Atr_QueryAuctionItems("xyzzy", 43, 43, 0, 7, 0);
     zz ("Atr_ClearBrowseListings succeeded");
   end
 
@@ -956,241 +821,6 @@ function Atr_SortAuctionData (x, y)
   return x.itemPrice < y.itemPrice;
 
 end
-
------------------------------------------
-
-function AtrScan:CondenseAndSort ()
-
-  ----- Condense the scan data into a table that has only a single entry per stacksize/price combo
-
-  self.sortedData = {};
-
-  local i,sd;
-  local conddata = {};
-
-  for i,sd in ipairs (self.scanData) do
-
-    local ownerCode = "x";
-    local dataType  = "n";    -- normal
-
-    if (sd.owner == UnitName("player")) then
-      ownerCode = "y";
---    elseif (Atr_IsMyToon (sd.owner)) then
---      ownerCode = sd.owner;
-    end
-
-    local key = "_"..sd.stackSize.."_"..sd.buyoutPrice.."_"..ownerCode..dataType;
-
-    if (conddata[key]) then
-      conddata[key].count   = conddata[key].count + 1;
-    else
-      local data = {};
-
-      data.stackSize    = sd.stackSize;
-      data.buyoutPrice  = sd.buyoutPrice;
-      data.itemPrice    = sd.buyoutPrice / sd.stackSize;
-      data.count      = 1;
-      data.type     = dataType;
-      data.yours      = (ownerCode == "y");
-
-      if (ownerCode ~= "x" and ownerCode ~= "y") then
-        data.altname = ownerCode;
-      end
-
-      if (sd.volume) then
-        data.volume = sd.volume;
-      end
-
-      conddata[key] = data;
-    end
-
-  end
-
-  ----- create a table of these entries
-
-  local n = 1;
-
-  local i, v;
-
-  for i,v in pairs (conddata) do
-    self.sortedData[n] = v;
-    n = n + 1;
-  end
-
-  -- sort the table by itemPrice
-
-  table.sort (self.sortedData, Atr_SortAuctionData);
-
-  -- analyze and store some info about the data
-
-  self:AnalyzeSortData ();
-
-end
-
------------------------------------------
-
-function AtrScan:AnalyzeSortData ()
-
-  self.absoluteBest     = nil;
-  self.bestPrices       = {};   -- a table with one entry per stacksize that is the cheapest auction for that particular stacksize
-  self.numMatches       = 0;
-  self.numMatchesWithBuyout = 0;
-  self.hasStack       = false;
-  self.yourBestPrice      = nil;
-  self.yourWorstPrice     = nil;
-
-  local j, sd;
-
-  ----- find the best price per stacksize and overall -----
-
-  for j,sd in ipairs(self.sortedData) do
-
-    if (sd.type == "n") then
-
-      self.numMatches = self.numMatches + 1;
-
-      if (sd.itemPrice > 0) then
-
-        self.numMatchesWithBuyout = self.numMatchesWithBuyout + 1;
-
-        if (self.bestPrices[sd.stackSize] == nil or self.bestPrices[sd.stackSize].itemPrice >= sd.itemPrice) then
-          self.bestPrices[sd.stackSize] = sd;
-        end
-
-        if (self.absoluteBest == nil or self.absoluteBest.itemPrice > sd.itemPrice) then
-          self.absoluteBest = sd;
-        end
-
-        if (sd.yours) then
-          if (self.yourBestPrice == nil or self.yourBestPrice > sd.itemPrice) then
-            self.yourBestPrice = sd.itemPrice;
-          end
-
-          if (self.yourWorstPrice == nil or self.yourWorstPrice < sd.itemPrice) then
-            self.yourWorstPrice = sd.itemPrice;
-          end
-
-        end
-      end
-
-      if (sd.stackSize > 1) then
-        self.hasStack = true;
-      end
-    end
-  end
-end
-
------------------------------------------
-
-function AtrScan:FindInSortedData (stackSize, buyoutPrice)
-  local j = 1;
-  for j = 1,#self.sortedData do
-    sd = self.sortedData[j];
-    if (sd.stackSize == stackSize and sd.buyoutPrice == buyoutPrice and sd.yours) then
-      return j;
-    end
-  end
-
-  return 0;
-end
-
-
------------------------------------------
-
-function AtrScan:FindMatchByStackSize (stackSize)
-
-  local index = nil;
-
-  local basedata = self.absoluteBest;
-
-  if (self.bestPrices[stackSize]) then
-    basedata = self.bestPrices[stackSize];
-  end
-
-  local numrows = #self.sortedData;
-
-  local n;
-
-  for n = 1,numrows do
-
-    local data = self.sortedData[n];
-
-    if (basedata and data.itemPrice == basedata.itemPrice and data.stackSize == basedata.stackSize and data.yours == basedata.yours) then
-      index = n;
-      break;
-    end
-  end
-
-  return index;
-
-end
-
------------------------------------------
-
-function AtrScan:FindMatchByYours ()
-
-  local index = nil;
-
-  local j;
-  for j = 1,#self.sortedData do
-    sd = self.sortedData[j];
-    if (sd.yours) then
-      index = j;
-      break;
-    end
-  end
-
-  return index;
-
-end
-
------------------------------------------
-
-function AtrScan:FindCheapest ()
-
-  local index = nil;
-
-  local j;
-  for j = 1,#self.sortedData do
-    sd = self.sortedData[j];
-    if (sd.itemPrice > 0) then
-      index = j;
-      break;
-    end
-  end
-
-  return index;
-
-end
-
-
------------------------------------------
-
-function AtrScan:GetNumAvailable ()
-
-  local num = 0;
-
-  local j, data;
-  for j = 1,#self.sortedData do
-
-    data = self.sortedData[j];
-    num = num + (data.count * data.stackSize);
-  end
-
-  return num;
-end
-
------------------------------------------
-
-function AtrScan:IsNil ()
-
-  if (self.itemName == nil or self.itemName == "" or self.itemName == "nil") then
-    return true;
-  end
-
-  return false;
-end
-
 
 -----------------------------------------
 
