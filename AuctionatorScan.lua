@@ -7,8 +7,6 @@ local _
 
 local gAllScans = {};
 
-local BIGNUM = 999999999999;
-
 gScanHistDayZero = time({year=2010, month=11, day=15, hour=0});   -- never ever change
 
 local gNumNilItemLinks
@@ -91,45 +89,28 @@ function AtrSearch:Init (searchText, IDstring, itemLink, rescanThreshold)
     end
 
     if (not self.items[IDstring]) then
-      self.items[IDstring] = Atr_FindScanAndInit (IDstring, searchText);
+      self.items[IDstring] = Atr_FindScan( IDstring, searchText )
       self.items[IDstring]:UpdateItemLink (itemLink);
     end
 
   end
-
-
 end
 
 -----------------------------------------
 
-function Atr_FindScanAndInit (IDstring, itemName)
-  Auctionator.Debug.Message( 'Atr_FindScanAndInit', IDstring, itemName )
-
-  return Atr_FindScan (IDstring, itemName, true);
-end
-
------------------------------------------
-
-function Atr_FindScan (IDstring, itemName, init)
-  Auctionator.Debug.Message( 'Atr_FindScan', IDstring, itemName, init )
+function Atr_FindScan (IDstring, itemName )
+  Auctionator.Debug.Message( 'Atr_FindScan', IDstring, itemName )
 
   if (IDstring == nil or IDstring == "" or IDstring == "0") then
     IDstring = "0";
     itemName = "nil";
   end
 
-  if (gAllScans[IDstring] == nil and itemName ~= nil) then  -- if no itemName provided then we can't create
-    local scn = {};
-    setmetatable (scn, AtrScan);
-    gAllScans[IDstring] = scn;
-    init = true;
+  if gAllScans[ IDstring ] == nil and itemName ~= nil then
+    gAllScans[ IDstring ] = Auctionator.Scan:new({ IDstring = IDstring, itemName = itemName })
   end
 
-  if (init and gAllScans[IDstring] ~= nil) then
-    gAllScans[IDstring]:Init (IDstring, itemName);
-  end
-
-  return gAllScans[IDstring];
+  return gAllScans[ IDstring ]
 end
 
 -----------------------------------------
@@ -389,7 +370,7 @@ function AtrSearch:AnalyzeResultsPage()
         if OKitemLevel and ( self.exactMatchText == nil or zc.StringSame( item.name, self.exactMatchText )) then
 
           if self.items[ item_link:IdString() ] == nil then
-            self.items[ item_link:IdString() ] = Atr_FindScanAndInit( item_link:IdString(), item.name )
+            self.items[ item_link:IdString() ] = Atr_FindScan( item_link:IdString(), item.name )
           end
 
           local scn = self.items[ item_link:IdString() ]
@@ -646,7 +627,7 @@ function AtrSearch:Finish()
           if (info.id and self.items[info.id] == nil) then
             local itemID, suffixID = strsplit(":", info.id);
             if (suffixID == nil) then   -- for now; seems problematic for many green "of the" items
-              self.items[info.id] = Atr_FindScanAndInit (info.id, name);
+              self.items[info.id] = Atr_FindScan( info.id, name )
               local itemLink = zc.LinkFromItemID (itemID, suffixID);
               if (itemLink) then
                 self.items[info.id]:UpdateItemLink (itemLink)
@@ -669,7 +650,7 @@ function AtrSearch:Finish()
       if (dbInfo and dbInfo.id) then
         local IDstring = dbInfo.id
         if (self.items[IDstring] == nil) then
-          self.items[IDstring] = Atr_FindScanAndInit (IDstring, itemname)
+          self.items[IDstring] = Atr_FindScan( IDstring, itemname )
           local itemLink = zc.LinkFromItemID (IDstring);
           if (itemLink) then
             self.items[IDstring]:UpdateItemLink (itemLink)
@@ -677,7 +658,7 @@ function AtrSearch:Finish()
         end
       else    -- not in scandb
         local IDstring = "***"..itemname
-        self.items[IDstring] = Atr_FindScanAndInit (IDstring, itemname)
+        self.items[IDstring] = Atr_FindScan( IDstring, itemname )
       end
     end
   end
@@ -692,7 +673,7 @@ function AtrSearch:Finish()
 
     if (dbInfo and dbInfo.id) then  -- so that we see the history tab, etc.
       local IDstring = dbInfo.id;
-      self.items[IDstring] = Atr_FindScan (IDstring, self.searchText, true);
+      self.items[IDstring] = Atr_FindScan (IDstring, self.searchText );
     else
       self.items["0"] = Atr_FindScan (nil);
     end
@@ -718,7 +699,7 @@ function AtrSearch:Finish()
 
     -- update the fullscan DB
 
-    if (scn.lowprice < BIGNUM) then
+    if (scn.lowprice < Auctionator.Constants.BigNum) then
 
       if scn.itemQuality == nil then
         Auctionator.Debug.Message( 'Error: scn.itemQuality == nil, scn.itemName: ' .. scn.itemName )
@@ -811,14 +792,6 @@ function Atr_ClearBrowseListings()
     zz ("Atr_ClearBrowseListings succeeded");
   end
 
-
-end
-
------------------------------------------
-
-function Atr_SortAuctionData (x, y)
-
-  return x.itemPrice < y.itemPrice;
 
 end
 
