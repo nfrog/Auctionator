@@ -372,7 +372,6 @@ function Atr_OnChatMsgAddon (...)
     end
 
     if zc.StringStartsWith( msg, "V_" ) and time() - VREQ_sent < 5 then
-
       local herVerString = string.sub( msg, 3 )
       local outOfDate = CheckVersion( herVerString )
 
@@ -5105,7 +5104,7 @@ end
 -----------------------------------------
 
 function Atr_GetCurrentPane ()      -- so other modules can use gCurrentPane
-  Auctionator.Debug.Message( 'Atr_GetCurrentPane' )
+  -- Auctionator.Debug.Message( 'Atr_GetCurrentPane' )
 
   return gCurrentPane;
 end
