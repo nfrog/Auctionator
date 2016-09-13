@@ -132,8 +132,12 @@ AtrL["yours"] = "|cFF4499FF본인 물품|r"
 ----------------------------------
 
 -- Full Scan Popup Windows (전체 스캔창)
+AtrL["Options..."] = "설정..."
 AtrL["Full Scan..."] = "모두 조사..."
 AtrL["Full Scan"] = "모두 조사"
+AtrL["Advanced"] = "확장"
+AtrL["Exact Match"] = "정확히 일치"
+
 AtrL["full scan database cleared"] = "전체스캔 데이터가 삭제되었습니다."
 AtrL["Start Scanning"] = "조사 시작"
 AtrL["Done"] = "확인"
